@@ -3,7 +3,10 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <algorithm>
+#include "Eigen/Eigen"
 
+using namespace std;
 
 struct Mesh
 {
@@ -15,40 +18,20 @@ struct Mesh
 
 };
 
-
-std::vector<std::string> ReadInputs()
+void printmatrix(std::vector<vector<double>> M)
 {
-    std::fstream Inputs;
-    Inputs.open("connectivity.dat",std::ios::in);
-
-    std::vector<std::string> inp;
-    std::string line;
-    int current_line = 0;
-    while (std::getline(Inputs, line)) 
-    {   
-        
-        inp.push_back(line);
-        std::cout<<inp[current_line]<<std::endl;
-        current_line = current_line+1;  
-    }
-    
-    return inp;
-}
-
-void printvector(std::vector<std::vector<char>> X)
-{
-    for(int i = 0; i < X.size();i++)
+    for(int i = 0; i < M.size(); i ++)
     {
-        for (int j = 0 ; j < X[i].size();j++)
+        for(int j = 0; j < M.size();j++)
         {
-            std::cout<<X[i][j];
+            cout<<M[i][j]<<"\t";
         }
-    std::cout<<""<<std::endl;
-    }
+        cout<<"\n";
 
+    }
 }
 
-void print(std::vector<char> X)
+void print_int(std::vector<int> X)
 {
     for (int i = 0; i < X.size();i++)
     {
@@ -56,8 +39,15 @@ void print(std::vector<char> X)
     }
 }
 
+void print_double(std::vector<double> X)
+{
+    for (int i = 0; i < X.size();i++)
+    {
+        std::cout<<X[i]<<std::endl;
+    }
+}
 
-void ReadMesh2(std::string coord_filename,std::string conn_filename, Mesh &M)
+void ReadMesh(std::string coord_filename,std::string conn_filename, Mesh &M)
 {
     std::ifstream file_coord;
     std::vector<char> f1;
@@ -127,37 +117,138 @@ void ReadMesh2(std::string coord_filename,std::string conn_filename, Mesh &M)
             out_y.clear();
         }
     }
+   for(int iter= 0; iter<X.size();iter++)
+   {
+    M.coordinates.push_back(X[iter]);
+    M.coordinates.push_back(Y[iter]); 
+   }
+    
+    
 
     f1.clear();
     
-    std::vector<char> f2;
-    std::ifstream file_conn;
-    file_conn.open(conn_filename);
-    if(!file_conn)
-    {
-    std::cerr <<"Problem opening file" << std::endl;
+
+    std::fstream Inputs;
+    Inputs.open("connectivity.dat",std::ios::in);
+
+    
+    std::vector<std::vector<int>> connectivityMatrix;
+
+    std::vector<std::string> inp;
+    std::vector<std::string> inp2;
+    std::string line;
+    int current_line = 0;
+    while (std::getline(Inputs, line)) 
+    {   
+     
+        inp.push_back(line);
+        inp[current_line].erase(0,11);
+       
+        current_line = current_line+1;  
     }
-    while(file_conn)
+    for(current_line = 2; current_line < inp.size();current_line++)
     {
-    f1.push_back(file_conn.get());
-    }
-    for (int i = 31; i < f2.size(); i++)
-    {
-        f2.push_back(f1[i]);
+        inp2.push_back(inp[current_line]);        
     }
 
+    std::vector<string> n1(inp2.size());
+    std::vector<string> n2(inp2.size());
+    std::vector<string> n3(inp2.size());
+    
+    std::vector<int> connectivity(3);
 
+    for(current_line = 0 ; current_line < inp2.size(); current_line++)
+    {   
+        connectivity.clear();
+        n1[current_line] = inp2[current_line];
+        n2[current_line] = inp2[current_line];
+        n3[current_line] = inp2[current_line];
+        n1[current_line].erase(2,10);
+        n2[current_line].erase(5,10);
+        n2[current_line].erase(0,2);
+        n3[current_line].erase(0,5);
+       
+        size_t pos;
+        std::string x = " ", y = "";
+        while ((pos = n1[current_line].find(x)) != std::string::npos) 
+        {
+            n1[current_line].replace(pos, 1, y);
+        }
+        while ((pos = n2[current_line].find(x)) != std::string::npos) 
+        {
+            n2[current_line].replace(pos, 1, y);
+        }
+        while ((pos = n3[current_line].find(x)) != std::string::npos) 
+        {
+            n3[current_line].replace(pos, 1, y);
+        }
+        //connectivity.push_back(stoi(n1[current_line]));
+        //connectivity.push_back(stoi(n2[current_line]));
+        //connectivity.push_back(stoi(n3[current_line]));
+        //connectivityMatrix.push_back(connectivity);
+        //connectivity.clear();
+        M.connectivity.push_back(stoi(n1[current_line]));
+        M.connectivity.push_back(stoi(n2[current_line]));
+        M.connectivity.push_back(stoi(n3[current_line]));
+    }
+  
+   M.nNodes = M.coordinates.size()/2;
+   M.nElements = M.connectivity.size()/3;
  
+}
+
+int Local2GlobalMap(const Mesh& M, int elm_num, int loc_node_num)
+{
+    int globalindex =0;
+
+    if(elm_num > M.nElements)
+    {
+        cout<<"Element is not present!!";
+        
+    }
+    else
+    {
+        globalindex = M.connectivity[3 * (elm_num-1) + loc_node_num-1];
+    }
+    return globalindex;
+}
+
+void ComputeKe(const std::vector<double>& nodal_coords)
+{
+    vector<vector<double>> Ke;
+    vector<double> X = {nodal_coords[0],nodal_coords[2],nodal_coords[4]};
+    vector<double> Y = {nodal_coords[1],nodal_coords[3],nodal_coords[5]};
+    double Area = 0.5 * ( X[0] * (Y[1] - Y[2]) + X[1] * (Y[2] - Y[0]) + X[2] * (Y[0] - Y[1]));
+    vector <double> b = {(Y[1] - Y[2])*0.5/Area,(Y[2] - Y[0])*0.5*Area,(Y[0] - Y[1])*0.5*Area};
+    vector <double> c = {(X[2] - X[1])*0.5/Area,(X[0] - X[2])*0.5/Area,(X[1] - X[0])*0.5/Area};
+    vector<double> row1 = {b[0]*b[0] + c[0]*c[0], b[0]*b[1] + c[0]*c[1], b[0]*b[2] + c[0]*c[2] };
+    vector<double> row2 = {b[1]*b[0] + c[1]*c[0], b[1]*b[1] + c[1]*c[1], b[1]*b[2] + c[1]*c[2] };
+    vector<double> row3 = {b[2]*b[0] + c[2]*c[0], b[2]*b[1] + c[2]*c[1], b[2]*b[2] + c[2]*c[2] };
+   
+   Ke.push_back(row1);
+   Ke.push_back(row2);
+   Ke.push_back(row3);
+   
+   printmatrix(Ke);
+}
+
+void ComputeFe(const std::vector<double>& nodal_coords)
+{
+    vector<double> Fe = {0,0,0};
+
 }
 
 
 int main()
 {
     Mesh M;
-    //ReadMesh2("coordinates.dat","connectivity.dat",M);
-    std::vector<std::string> inp;
-    inp = ReadInputs();
+    ReadMesh("coordinates.dat","connectivity.dat",M);
+    //int elm_num = 128;
+    //int loc_node_num = 3;
+    //int globalindex = Local2GlobalMap(M,elm_num,loc_node_num);
 
+    Eigen::SparseMatrix<double> GlobalStiffnessMatrix(M.nNodes,M.nNodes);
     
+
 
 }
