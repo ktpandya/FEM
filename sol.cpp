@@ -213,6 +213,18 @@ int Local2GlobalMap(const Mesh& M, int elm_num, int loc_node_num)
     return globalindex;
 }
 
+void nodalCoords(int elm_num,const Mesh &M,vector<double>& nodal_coords)
+{
+    
+    for(int j = 1; j < 4 ; j++)
+    {
+        nodal_coords.push_back(M.coordinates[ 2 * ( Local2GlobalMap ( M , elm_num , j ) - 1 )  ]);
+        nodal_coords.push_back(M.coordinates[ 2 * ( Local2GlobalMap ( M , elm_num , j ) - 1 ) +1 ]);
+    }
+
+//    print_double(nodal_coords);
+}
+
 void ComputeKe(const std::vector<double>& nodal_coords)
 {
     vector<vector<double>> Ke;
@@ -247,8 +259,10 @@ int main()
     //int loc_node_num = 3;
     //int globalindex = Local2GlobalMap(M,elm_num,loc_node_num);
 
-    Eigen::SparseMatrix<double> GlobalStiffnessMatrix(M.nNodes,M.nNodes);
-    
-
+    //Eigen::SparseMatrix<double> GlobalStiffnessMatrix(M.nNodes,M.nNodes);
+    vector<double> nodal_coords;
+    nodalCoords(1,M,nodal_coords);
+    //cout<<nodal_coords.size();
+    ComputeKe(nodal_coords);
 
 }
