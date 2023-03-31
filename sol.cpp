@@ -213,21 +213,19 @@ int Local2GlobalMap(const Mesh& M, int elm_num, int loc_node_num)
     return globalindex;
 }
 
-void nodalCoords(int elm_num,const Mesh &M,vector<double>& nodal_coords)
+void nodalCoords(int elm_num,int loc_node_num,const Mesh &M,vector<double>& nodal_coords)
 {
     
-    for(int j = 1; j < 4 ; j++)
-    {
-        nodal_coords.push_back(M.coordinates[ 2 * ( Local2GlobalMap ( M , elm_num , j ) - 1 )  ]);
-        nodal_coords.push_back(M.coordinates[ 2 * ( Local2GlobalMap ( M , elm_num , j ) - 1 ) +1 ]);
-    }
+    int glob_node_num = Local2GlobalMap(M,elm_num,loc_node_num);
+    nodal_coords.push_back(M.coordinates[2 * glob_node_num]);
+    nodal_coords.push_back(M.coordinates[2 * glob_node_num + 1 ]);
 
 //    print_double(nodal_coords);
 }
 
-void ComputeKe(const std::vector<double>& nodal_coords)
+/*void ComputeKe(const std::vector<double>& nodal_coords, vector<vector<double>>& Ke)
 {
-    vector<vector<double>> Ke;
+    
     vector<double> X = {nodal_coords[0],nodal_coords[2],nodal_coords[4]};
     vector<double> Y = {nodal_coords[1],nodal_coords[3],nodal_coords[5]};
     double Area = 0.5 * ( X[0] * (Y[1] - Y[2]) + X[1] * (Y[2] - Y[0]) + X[2] * (Y[0] - Y[1]));
@@ -241,8 +239,14 @@ void ComputeKe(const std::vector<double>& nodal_coords)
    Ke.push_back(row2);
    Ke.push_back(row3);
    
-   printmatrix(Ke);
+   //printmatrix(Ke);
+}*/
+
+void ComputeKe(const std::vector<double>& nodal_coords,double* Ke)
+{
+    Ke = 
 }
+
 
 void ComputeFe(const std::vector<double>& nodal_coords)
 {
@@ -261,8 +265,40 @@ int main()
 
     //Eigen::SparseMatrix<double> GlobalStiffnessMatrix(M.nNodes,M.nNodes);
     vector<double> nodal_coords;
-    nodalCoords(1,M,nodal_coords);
+    nodalCoords(126,M,nodal_coords);
+
     //cout<<nodal_coords.size();
-    ComputeKe(nodal_coords);
+    //ComputeKe(nodal_coords);
+
+    vector<vector<double>> Ke;
+
+    Eigen::SparseMatrix<double> A(M.nNodes,M.nNodes);
+    typedef Eigen::Triplet<double> T;
+    std::vector<T> tripletList{};
+   tripletList.reserve(3*M.nNodes);
+   for(int i = 0; i< M.nElements-1;i++)
+   {
+    for (int k = -1; k<2; k++)
+    { 
+        if (i==i+k )
+        {
+            nodalCoords(i,M,nodal_coords);
+            ComputeKe(nodal_coords,Ke);
+            tripletList.push_back(T(i,i+k,Ke[0][0]));
+            tripletList.push_back(M(i+1,i+k+1,Ke[1][1]));
+        }
+        else if (i + k <= X_vect.size() && i != i+k )
+        {
+            tripletList.push_back(M(i,i+k,ComputeElementMassMatrix(X_vect.at(i),X_vect.at(i+1))[1][0]));
+            if (i == X_vect.size()-2 && k == -1)
+            {
+               tripletList.push_back(M(i+1, i+k+1 ,ComputeElementMassMatrix(X_vect.at(i),X_vect.at(i+1))[1][0])); 
+            }
+        }
+    }
+   }
+    tripletList.shrink_to_fit();
+    A.setFromTriplets(tripletList.begin(),tripletList.end());
+    return A;
 
 }
