@@ -38,6 +38,12 @@
         "deque": "cpp",
         "unordered_map": "cpp",
         "functional": "cpp",
-        "tuple": "cpp"
+        "tuple": "cpp",
+        "complex": "cpp",
+        "cstddef": "cpp",
+        "cstring": "cpp",
+        "list": "cpp",
+        "map": "cpp",
+        "iomanip": "cpp"
     }
 }
